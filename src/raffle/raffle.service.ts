@@ -69,26 +69,39 @@ export class RaffleService {
     });
   }
 
-  async findTicketPaid(paid: boolean): Promise<any[]> {
+  async findTicketPaid(paid: boolean): Promise<number> {
     return await this.ticketRepository
       .createQueryBuilder('ticket')
-      .select('person.name', 'name')
-      .leftJoin('ticket.person', 'person')
       .where('ticket.paid = :paid', { paid })
-      .distinctOn(['person.name'])
-      .getRawMany();
+      .getCount();
+  }
+
+  async findPersonsPaid(paid: boolean) {
+    const persons = await this.personRepository
+      .createQueryBuilder('person')
+      .leftJoinAndSelect('person.tickets', 'tickets')
+      .where('tickets.paid = :paid', { paid })
+      .orderBy('person.name', 'ASC')
+      .getMany();
+
+    return persons.map((person) => ({
+      name: person.name?.toUpperCase(),
+      tickets: person.tickets?.map((ticket) => ticket.ticket), // Extrae solo el campo `ticket`
+    }));
   }
 
   async findTotalParticipants(): Promise<any> {
-    const participantsPaid = await this.findTicketPaid(true);
-    const participantsNoPaid = await this.findTicketPaid(false);
-    const totalParticipants = await this.findTickets();
+    const ticketsPaid = await this.findTicketPaid(true);
+    const ticketsNoPaid = await this.findTicketPaid(false);
+    const participantsPaid = await this.findPersonsPaid(true);
+    const participantsNoPaid = await this.findPersonsPaid(false);
+    const totalTickets = await this.findTickets();
     return {
-      totalParticipants: totalParticipants.length,
-      totalPaid: participantsPaid?.length,
-      totalNoPaid: participantsNoPaid?.length,
-      paid: participantsPaid,
-      noPaid: participantsNoPaid,
+      totalTickets: totalTickets.length,
+      totalPaid: ticketsPaid,
+      totalNoPaid: ticketsNoPaid,
+      participantsPaid: participantsPaid,
+      participantsNoPaid: participantsNoPaid,
     };
   }
 
