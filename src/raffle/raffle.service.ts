@@ -115,14 +115,6 @@ export class RaffleService {
     };
   }
 
-  /*   async shuffle(tickets: any[]) {
-    for (let i = tickets.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [tickets[i], tickets[j]] = [tickets[j], tickets[i]]; // Intercambia elementos
-    }
-    return tickets;
-  } */
-
   async playRaffle(): Promise<{ eliminated: Ticket[]; winner: Ticket }> {
     const tickets = await this.findTickets();
     const particpants = await this.findParticipants();
@@ -141,18 +133,18 @@ export class RaffleService {
         `✅ ${total} PARTICIPANTE: ${particpant.name.toUpperCase()} | TICKETS: ${particpant.tickets.length} ✅`,
       );
       total++;
-      await delay(800); // Esperar 3 segundos
+      await delay(600); // Esperar 3 segundos
     }
 
     // Barajar los boletos
     const shuffled = shuffle(tickets);
 
     // Seleccionar los primeros 10 boletos
-    const selected = shuffled.slice(0, 10);
+    const selected = shuffled.slice(0, 20);
 
     // Eliminar los primeros 9 y dejar el último como ganador
-    const eliminated = selected.slice(0, 9);
-    const winner = selected[9];
+    const eliminated = selected.slice(0, 19);
+    const winner = selected[19];
 
     // Imprimir eliminados uno por uno
     for (const currentTicket of eliminated) {
