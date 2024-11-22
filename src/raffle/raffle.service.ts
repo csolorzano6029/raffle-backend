@@ -7,6 +7,7 @@ import { randomBytes } from 'crypto';
 import * as chalk from 'chalk'; // Asegúrate de instalar este paquete: npm install chalk
 import * as QRCode from 'qrcode';
 import * as fs from 'fs';
+import { shuffle } from 'lodash';
 
 @Injectable()
 export class RaffleService {
@@ -60,12 +61,21 @@ export class RaffleService {
   }
 
   async findTickets() {
-    return await this.ticketRepository.find();
+    return await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .select('ticket.ticket', 'ticket')
+      .addSelect('UPPER(person.name)', 'name')
+      .leftJoin('ticket.person', 'person')
+      .orderBy('person.name', 'ASC')
+      .getRawMany();
   }
 
   async findParticipants() {
     return await this.personRepository.find({
       relations: ['tickets'],
+      order: {
+        name: 'ASC', // Orden ascendente. Cambia a 'DESC' para descendente.
+      },
     });
   }
 
@@ -105,19 +115,44 @@ export class RaffleService {
     };
   }
 
+  /*   async shuffle(tickets: any[]) {
+    for (let i = tickets.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [tickets[i], tickets[j]] = [tickets[j], tickets[i]]; // Intercambia elementos
+    }
+    return tickets;
+  } */
+
   async playRaffle(): Promise<{ eliminated: Ticket[]; winner: Ticket }> {
-    const tickets = await this.ticketRepository.find({ relations: ['person'] });
-    if (tickets.length < 10)
-      throw new Error('Not enough tickets to play the raffle');
-
-    // Barajar y seleccionar 5 boletos
-    const shuffled = tickets.sort(() => Math.random() - 0.5).slice(0, 10);
-    const eliminated = shuffled.slice(0, 9);
-    const winner = shuffled[9];
-
+    const tickets = await this.findTickets();
+    const particpants = await this.findParticipants();
     // Función para esperar 4 segundos
     const delay = (ms: number) =>
       new Promise((resolve) => setTimeout(resolve, ms));
+
+    console.log('\n');
+    console.log(
+      '🔥 ================ LISTA DE PARTICIPANTES ================ 🔥',
+    );
+    let total = 1;
+    for (const particpant of particpants) {
+      console.log('\n');
+      console.log(
+        `✅ ${total} PARTICIPANTE: ${particpant.name.toUpperCase()} | TICKETS: ${particpant.tickets.length} ✅`,
+      );
+      total++;
+      await delay(800); // Esperar 3 segundos
+    }
+
+    // Barajar los boletos
+    const shuffled = shuffle(tickets);
+
+    // Seleccionar los primeros 10 boletos
+    const selected = shuffled.slice(0, 10);
+
+    // Eliminar los primeros 9 y dejar el último como ganador
+    const eliminated = selected.slice(0, 9);
+    const winner = selected[9];
 
     // Imprimir eliminados uno por uno
     for (const currentTicket of eliminated) {
@@ -125,8 +160,8 @@ export class RaffleService {
 
       console.log(
         chalk.redBright(`❌ Eliminado:`),
-        `Ticket: ${chalk.yellow(currentTicket.ticket)}`,
-        `| Persona: ${chalk.cyan(currentTicket.person.name.toUpperCase())}`,
+        `TICKET: ${chalk.yellow(currentTicket.ticket)}`,
+        `| PARTICIPANTE: ${chalk.cyan(currentTicket.name.toUpperCase())}`,
       );
       await delay(3000); // Esperar 3 segundos
     }
@@ -135,8 +170,8 @@ export class RaffleService {
     console.log('\n');
     console.log(
       chalk.greenBright(`🎉 ¡Ganador!:`),
-      `Token: ${chalk.yellow(winner.ticket)}`,
-      `| Persona: ${chalk.cyan(winner.person.name.toUpperCase())}`,
+      `TICKET: ${chalk.yellow(winner.ticket)}`,
+      `| PARTICIPANTE: ${chalk.cyan(winner.name.toUpperCase())}`,
     );
 
     return { eliminated, winner };
