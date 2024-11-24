@@ -123,9 +123,13 @@ export class RaffleService {
       new Promise((resolve) => setTimeout(resolve, ms));
 
     console.log('\n');
-    console.log(
-      '🔥 ================ LISTA DE PARTICIPANTES ================ 🔥',
-    );
+    console.log(`
+    ***************************************************
+    *                                                 *
+    *         🎈 LISTA DE PARTICIPANTES 🎁           *
+    *                                                 *
+    ***************************************************
+    `);
     let total = 1;
     for (const particpant of particpants) {
       console.log('\n');
