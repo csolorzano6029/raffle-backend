@@ -21,6 +21,11 @@ export class RaffleController {
     return this.raffleService.playRaffle();
   }
 
+  @Get('reset')
+  resetRaffle() {
+    return this.raffleService.resetRaffle();
+  }
+
   @Get('participants')
   findParticipants() {
     return this.raffleService.findParticipants();
@@ -49,5 +54,10 @@ export class RaffleController {
   @Get('participants-paid')
   async findTotalParticipants() {
     return this.raffleService.findTotalParticipants();
+  }
+
+  @Get('list-participants')
+  async listParticipants() {
+    return this.raffleService.listParticipants();
   }
 }

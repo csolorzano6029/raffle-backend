@@ -27,11 +27,14 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "figlet": "^1.8.0",
+    "jimp": "^1.6.0",
     "lodash": "^4.17.21",
     "pg": "^8.13.1",
     "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
+    "terminal-image": "^3.0.0",
+    "terminal-img": "^2.0.24",
     "typeorm": "^0.3.20"
   },
   "devDependencies": {

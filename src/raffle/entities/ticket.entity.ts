@@ -15,6 +15,9 @@ export class Ticket {
   @Column({ type: 'text', nullable: true })
   qr: string;
 
+  @Column({ length: 1 })
+  status: string;
+
   @ManyToOne(() => Person, (person) => person.tickets, { onDelete: 'CASCADE' })
   person: Person;
 }

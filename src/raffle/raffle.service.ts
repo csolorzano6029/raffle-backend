@@ -8,6 +8,8 @@ import * as chalk from 'chalk'; // Asegúrate de instalar este paquete: npm inst
 import * as QRCode from 'qrcode';
 import * as fs from 'fs';
 import { shuffle } from 'lodash';
+import { Catalogue } from './entities/catalogue.entity';
+import { CatalogueValue } from 'src/constants/app.constant';
 
 @Injectable()
 export class RaffleService {
@@ -16,6 +18,8 @@ export class RaffleService {
     private readonly ticketRepository: Repository<Ticket>,
     @InjectRepository(Person)
     private readonly personRepository: Repository<Person>,
+    @InjectRepository(Catalogue)
+    private readonly catalogueRepository: Repository<Catalogue>,
   ) {}
 
   async createPerson(name: string, dni?: string): Promise<Person> {
@@ -60,14 +64,27 @@ export class RaffleService {
     return tickets;
   }
 
-  async findTickets() {
-    return await this.ticketRepository
+  async findTickets(status?: string) {
+    const tickets = this.ticketRepository
       .createQueryBuilder('ticket')
       .select('ticket.ticket', 'ticket')
+      .addSelect('ticket.id', 'id')
       .addSelect('UPPER(person.name)', 'name')
       .leftJoin('ticket.person', 'person')
-      .orderBy('person.name', 'ASC')
-      .getRawMany();
+      .orderBy('person.name', 'ASC');
+
+    if (status) {
+      tickets.where('ticket.status = :status', { status });
+    }
+
+    return await tickets.getRawMany();
+  }
+
+  async findTicketById(id: number) {
+    return await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .where('ticket.id = :id', { id })
+      .getOne();
   }
 
   async findParticipants() {
@@ -115,62 +132,144 @@ export class RaffleService {
     };
   }
 
-  async playRaffle(): Promise<{ eliminated: Ticket[]; winner: Ticket }> {
-    const tickets = await this.findTickets();
-    const particpants = await this.findParticipants();
+  async findCatalogueByName(name: string): Promise<Catalogue> {
+    return await this.catalogueRepository
+      .createQueryBuilder('catalogue')
+      .where('catalogue.name = :name', { name })
+      .getOne();
+  }
+
+  async updateShiftCatalogue() {
+    const shift = await this.findCatalogueByName(CatalogueValue.SHIFT);
+    const total = Number(shift.value) + 1;
+    shift.value = total.toString();
+    return await this.catalogueRepository.save(shift);
+  }
+
+  async updateCatalogue(name: string, value: string) {
+    const shift = await this.findCatalogueByName(name);
+    shift.value = value;
+    return await this.catalogueRepository.save(shift);
+  }
+
+  async updateTicket(id: number, status: string) {
+    const ticket = await this.findTicketById(id);
+    ticket.status = status;
+    return await this.ticketRepository.save(ticket);
+  }
+
+  async updateTickets(ids: number[], status: string) {
+    return await this.ticketRepository.update(ids, { status });
+  }
+
+  async playerRemove(tickets: any[]) {
+    console.clear();
     // Función para esperar 4 segundos
     const delay = (ms: number) =>
       new Promise((resolve) => setTimeout(resolve, ms));
-
-    console.log('\n');
-    console.log(`
-    ***************************************************
-    *                                                 *
-    *         🎈 LISTA DE PARTICIPANTES 🎁           *
-    *                                                 *
-    ***************************************************
-    `);
-    let total = 1;
-    for (const particpant of particpants) {
-      console.log('\n');
-      console.log(
-        `✅ ${total} PARTICIPANTE: ${particpant.name.toUpperCase()} | TICKETS: ${particpant.tickets.length} ✅`,
-      );
-      total++;
-      await delay(600); // Esperar 3 segundos
-    }
 
     // Barajar los boletos
     const shuffled = shuffle(tickets);
 
     // Seleccionar los primeros 10 boletos
-    const selected = shuffled.slice(0, 20);
+    const selected = shuffled.slice(0, tickets.length);
 
     // Eliminar los primeros 9 y dejar el último como ganador
-    const eliminated = selected.slice(0, 19);
-    const winner = selected[19];
+    const players = selected.slice(0, tickets.length - 1);
+    const eliminated = selected[tickets.length - 1];
 
     // Imprimir eliminados uno por uno
-    for (const currentTicket of eliminated) {
+    for (const player of players) {
       console.log('\n');
 
       console.log(
-        chalk.redBright(`❌ Eliminado:`),
-        `TICKET: ${chalk.yellow(currentTicket.ticket)}`,
-        `| PARTICIPANTE: ${chalk.cyan(currentTicket.name.toUpperCase())}`,
+        chalk.blueBright(`🎉 ¡Participante!:`),
+        `TICKET: ${chalk.yellow(player.ticket)}`,
+        `| PARTICIPANTE: ${chalk.cyan(player.name.toUpperCase())}`,
       );
-      await delay(3000); // Esperar 3 segundos
+      await delay(400); // Esperar 3 segundos
     }
 
     // Imprimir el ganador
     console.log('\n');
     console.log(
-      chalk.greenBright(`🎉 ¡Ganador!:`),
+      chalk.redBright(`❌ Eliminado:`),
+      `TICKET: ${chalk.yellow(eliminated.ticket)}`,
+      `| PARTICIPANTE: ${chalk.cyan(eliminated.name.toUpperCase())}`,
+    );
+
+    await this.updateShiftCatalogue();
+    await this.updateTicket(eliminated.id, '0');
+  }
+
+  async playerWinner(tickets: any[]) {
+    console.clear();
+    // Función para esperar 4 segundos
+    const delay = (ms: number) =>
+      new Promise((resolve) => setTimeout(resolve, ms));
+
+    // Barajar los boletos
+    const shuffled = shuffle(tickets);
+
+    // Seleccionar los primeros 10 boletos
+    const selected = shuffled.slice(0, tickets.length);
+
+    // Eliminar los primeros 9 y dejar el último como ganador
+    const players = selected.slice(0, tickets.length - 1);
+    const winner = selected[tickets.length - 1];
+
+    // Imprimir eliminados uno por uno
+    for (const player of players) {
+      console.log('\n');
+
+      console.log(
+        chalk.blueBright(`🎉 ¡Participante!:`),
+        `TICKET: ${chalk.yellow(player.ticket)}`,
+        `| PARTICIPANTE: ${chalk.cyan(player.name.toUpperCase())}`,
+      );
+      await delay(400); // Esperar 3 segundos
+    }
+
+    // Imprimir el ganador
+    console.log('\n');
+    console.log(
+      chalk.greenBright(`🎁 !Ganador!:`),
       `TICKET: ${chalk.yellow(winner.ticket)}`,
       `| PARTICIPANTE: ${chalk.cyan(winner.name.toUpperCase())}`,
     );
+  }
 
-    return { eliminated, winner };
+  async playRaffle(): Promise<string> {
+    const tickets = await this.findTickets('1');
+    const { value: shift } = await this.findCatalogueByName(
+      CatalogueValue.SHIFT,
+    );
+    const { value: totalShift } = await this.findCatalogueByName(
+      CatalogueValue.TOTAL_SHIFT,
+    );
+
+    if (shift !== totalShift) {
+      await this.playerRemove(tickets);
+    } else {
+      await this.playerWinner(tickets);
+    }
+
+    return 'Complete Game';
+  }
+
+  async resetRaffle() {
+    const tickets = await this.findTickets('0');
+    const ids: number[] = tickets.map((ticket) => {
+      return ticket.id;
+    });
+
+    if (ids.length > 0) {
+      await this.updateTickets(ids, '1');
+    }
+
+    await this.updateCatalogue(CatalogueValue.SHIFT, '1');
+
+    return 'Reset Game';
   }
 
   async generateHtmlWithQRCodes(): Promise<string> {
@@ -224,5 +323,28 @@ export class RaffleService {
     fs.writeFileSync(filePath, htmlContent);
 
     return filePath; // Retornar la ruta del archivo
+  }
+
+  async listParticipants() {
+    const particpants = await this.findParticipants();
+
+    const delay = (ms: number) =>
+      new Promise((resolve) => setTimeout(resolve, ms));
+
+    console.log('\n');
+    console.log(`
+    
+             🎁  LISTA DE PARTICIPANTES 🎁           
+    
+    `);
+    let total = 1;
+    for (const particpant of particpants) {
+      console.log('\n');
+      console.log(
+        `✅ ${total} PARTICIPANTE: ${particpant.name.toUpperCase()} | TICKETS: ${particpant.tickets.length} ✅`,
+      );
+      total++;
+      await delay(1200); // Esperar 3 segundos
+    }
   }
 }
